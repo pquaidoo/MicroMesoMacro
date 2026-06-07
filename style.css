@@ -364,8 +364,9 @@ main {
 #venn-svg {
   width: 100%;
   height: auto;
-  border-radius: var(--radius);
   display: block;
+  border-radius: var(--radius);
+  aspect-ratio: 600 / 510;
 }
 
 .breakdown-panel {

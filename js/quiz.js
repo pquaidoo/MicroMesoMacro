@@ -18,6 +18,50 @@
 
   const SWIPE_MAP = { right: 'often', up: 'would', down: 'eh', left: 'dislike' };
 
+  // Default votes loaded from default.txt — index matches GAMES array order
+  const DEFAULT_VOTES = [
+    'wouldnt', // Chess
+    'wouldnt', // Poker
+    'wouldnt', // Counter-Strike / VALORANT
+    'often',   // League of Legends
+    'eh',      // Dota 2
+    'wouldnt', // Street Fighter
+    'wouldnt', // Tekken
+    'wouldnt', // Mortal Kombat
+    'wouldnt', // StarCraft II
+    'wouldnt', // Tetris
+    'would',   // Hearthstone
+    'eh',      // Magic: The Gathering
+    'dislike', // Among Us
+    'wouldnt', // Fortnite
+    'wouldnt', // Warzone / PUBG
+    'wouldnt', // Apex Legends
+    'would',   // Overwatch 2
+    'wouldnt', // Rocket League
+    'often',   // Minecraft
+    'wouldnt', // Civilization VI
+    'wouldnt', // Age of Empires II
+    'wouldnt', // Escape from Tarkov
+    'wouldnt', // FIFA / EA FC
+    'wouldnt', // Speedrunning
+    'wouldnt', // Diplomacy
+    'would',   // Dungeons & Dragons
+    'eh',      // Super Smash Bros.
+    'wouldnt', // Dance Dance Revolution
+    'wouldnt', // osu!
+    'would',   // Teamfight Tactics
+    'eh',      // XCOM 2
+    'eh',      // Rust
+    'would',   // Rainbow Six Siege
+    'wouldnt', // Halo (multiplayer)
+    'wouldnt', // Splatoon
+    'wouldnt', // Go (board game)
+    'wouldnt', // Backgammon
+    'eh',      // Scrabble
+    'wouldnt', // Warcraft III
+    'wouldnt', // Path of Exile
+  ];
+
   let deck    = [];
   let cursor  = 0;
   let votes   = [];
@@ -323,6 +367,12 @@
 
   // ── Navigation ───────────────────────────────────────────
   $('btn-start').addEventListener('click', () => { initDeck(); showScreen('select'); });
+
+  $('btn-demo').addEventListener('click', () => {
+    votes = GAMES.map((game, i) => ({ game, action: DEFAULT_VOTES[i] }));
+    cursor = GAMES.length;
+    showResults();
+  });
   $('btn-restart').addEventListener('click', () => showScreen('intro'));
   $('btn-share-info').addEventListener('click', () => {
     const title = $('breakdown').querySelector('.profile-title')?.textContent || 'My Gamer Profile';
