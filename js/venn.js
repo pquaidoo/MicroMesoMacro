@@ -1,38 +1,36 @@
-// Draws the Venn diagram and places game bubbles using barycentric positioning.
-// The three circle centers form an equilateral triangle; a game's position =
-// weighted average of the three centers by its micro/meso/macro scores.
-
 const VENN = (() => {
-  const W = 600, H = 520;
-  const R = 145; // circle radius
+  const W = 600, H = 510;
+  const R = 148;
 
-  // Circle centers — equilateral triangle layout
-  // Micro = bottom-left, Meso = top, Macro = bottom-right
-  const CENTERS = {
-    micro: { x: W * 0.28, y: H * 0.68 },
-    meso:  { x: W * 0.50, y: H * 0.20 },
-    macro: { x: W * 0.72, y: H * 0.68 },
+  // Centers pulled close together so all three circles significantly overlap.
+  // Distance between any two centers ≈ 175px < 2R = 296px → large lens regions.
+  const CX = { micro: 210, meso: 300, macro: 390 };
+  const CY = { micro: 320, meso: 168, macro: 320 };
+
+  // Category colors
+  const COL = { micro: '#e05c5c', meso: '#5cb8e0', macro: '#5ce07a' };
+
+  // Intersection region colors (pairs + all-three)
+  const ICOL = {
+    micro_meso:  '#b060d8',   // purple
+    micro_macro: '#e08a30',   // orange
+    meso_macro:  '#30c8b0',   // teal
+    all:         '#f0e878',   // yellow-white
   };
 
-  const COLORS = {
-    micro: '#e05c5c',
-    meso:  '#5cb8e0',
-    macro: '#5ce07a',
-  };
-
-  function gamePosition(game) {
-    const total = game.micro + game.meso + game.macro || 1;
+  function gamePos(game) {
+    const t = game.micro + game.meso + game.macro || 1;
     return {
-      x: (game.micro * CENTERS.micro.x + game.meso * CENTERS.meso.x + game.macro * CENTERS.macro.x) / total,
-      y: (game.micro * CENTERS.micro.y + game.meso * CENTERS.meso.y + game.macro * CENTERS.macro.y) / total,
+      x: (game.micro * CX.micro + game.meso * CX.meso + game.macro * CX.macro) / t,
+      y: (game.micro * CY.micro + game.meso * CY.meso + game.macro * CY.macro) / t,
     };
   }
 
   function dominantColor(game) {
     const max = Math.max(game.micro, game.meso, game.macro);
-    if (game.micro === max) return COLORS.micro;
-    if (game.meso === max) return COLORS.meso;
-    return COLORS.macro;
+    if (game.micro === max) return COL.micro;
+    if (game.meso  === max) return COL.meso;
+    return COL.macro;
   }
 
   function render(svgEl, selectedGames) {
@@ -42,130 +40,173 @@ const VENN = (() => {
     const ns = 'http://www.w3.org/2000/svg';
     const mk = (tag, attrs) => {
       const el = document.createElementNS(ns, tag);
-      Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+      Object.entries(attrs || {}).forEach(([k, v]) => el.setAttribute(k, v));
       return el;
     };
 
-    // Background
-    svgEl.appendChild(mk('rect', { x: 0, y: 0, width: W, height: H, fill: '#0f1117', rx: 12 }));
+    // ── Background ──
+    svgEl.appendChild(mk('rect', { x:0, y:0, width:W, height:H, fill:'#0f1117', rx:12 }));
 
-    // Circles
-    const circleOrder = ['micro', 'meso', 'macro'];
-    circleOrder.forEach(cat => {
-      const c = CENTERS[cat];
+    // ── Defs: per-circle positive mask (inside) and negative mask (outside) ──
+    const defs = mk('defs');
+    const circles = [
+      ['micro', CX.micro, CY.micro],
+      ['meso',  CX.meso,  CY.meso ],
+      ['macro', CX.macro, CY.macro],
+    ];
+
+    circles.forEach(([cat, cx, cy]) => {
+      // Positive mask → white circle = "show only inside this circle"
+      const pos = mk('mask', { id: `vp-${cat}` });
+      pos.appendChild(mk('circle', { cx, cy, r: R, fill: 'white' }));
+      defs.appendChild(pos);
+
+      // Negative mask → white rect minus black circle = "show only OUTSIDE this circle"
+      const neg = mk('mask', { id: `vn-${cat}` });
+      neg.appendChild(mk('rect', { x:0, y:0, width:W, height:H, fill:'white' }));
+      neg.appendChild(mk('circle', { cx, cy, r: R, fill:'black' }));
+      defs.appendChild(neg);
+    });
+
+    svgEl.appendChild(defs);
+
+    // ── Region painter ──
+    // Applies a chain of masks from outermost to innermost.
+    // Each mask clips the result of all inner masks.
+    // e.g. region('#red', 0.25, 'vp-micro', 'vn-meso', 'vn-macro')
+    //   → draws red only where: inside-micro AND outside-meso AND outside-macro
+    function region(fill, opacity, ...maskIds) {
+      let el = mk('rect', { x:0, y:0, width:W, height:H, fill, 'fill-opacity': String(opacity) });
+      for (let i = maskIds.length - 1; i >= 0; i--) {
+        const g = mk('g', { mask: `url(#${maskIds[i]})` });
+        g.appendChild(el);
+        el = g;
+      }
+      svgEl.appendChild(el);
+    }
+
+    const OP = 0.30;
+
+    // 7 Venn regions
+    region(COL.micro,        OP, 'vp-micro', 'vn-meso',  'vn-macro');  // only micro
+    region(COL.meso,         OP, 'vp-meso',  'vn-micro', 'vn-macro');  // only meso
+    region(COL.macro,        OP, 'vp-macro', 'vn-micro', 'vn-meso' );  // only macro
+    region(ICOL.micro_meso,  OP, 'vp-micro', 'vp-meso',  'vn-macro');  // micro ∩ meso
+    region(ICOL.micro_macro, OP, 'vp-micro', 'vp-macro', 'vn-meso' );  // micro ∩ macro
+    region(ICOL.meso_macro,  OP, 'vp-meso',  'vp-macro', 'vn-micro');  // meso ∩ macro
+    region(ICOL.all,         OP, 'vp-micro', 'vp-meso',  'vp-macro');  // all three
+
+    // ── Circle outlines ──
+    circles.forEach(([cat, cx, cy]) => {
       svgEl.appendChild(mk('circle', {
-        cx: c.x, cy: c.y, r: R,
-        fill: COLORS[cat],
-        'fill-opacity': '0.12',
-        stroke: COLORS[cat],
-        'stroke-width': '2',
-        'stroke-opacity': '0.7',
+        cx, cy, r: R,
+        fill: 'none',
+        stroke: COL[cat],
+        'stroke-width': '2.5',
+        'stroke-opacity': '0.8',
       }));
     });
 
-    // Circle labels
-    const labelOffsets = {
-      micro: { dx: -R - 10, dy: 20 },
-      meso:  { dx: 0,       dy: -R - 14 },
-      macro: { dx: R + 10,  dy: 20 },
+    // ── Category labels ──
+    const labelPos = {
+      micro: { x: CX.micro - R - 8, y: CY.micro + 6,    anchor: 'end'    },
+      meso:  { x: CX.meso,          y: CY.meso  - R - 10, anchor: 'middle' },
+      macro: { x: CX.macro + R + 8, y: CY.macro + 6,    anchor: 'start'  },
     };
-    circleOrder.forEach(cat => {
-      const c = CENTERS[cat];
-      const off = labelOffsets[cat];
-      const label = mk('text', {
-        x: c.x + off.dx,
-        y: c.y + off.dy,
-        'text-anchor': 'middle',
-        fill: COLORS[cat],
-        'font-size': '15',
+    circles.forEach(([cat]) => {
+      const { x, y, anchor } = labelPos[cat];
+      const t = mk('text', {
+        x, y, 'text-anchor': anchor,
+        fill: COL[cat],
+        'font-size': '14',
         'font-weight': 'bold',
         'font-family': 'system-ui, sans-serif',
         'letter-spacing': '1',
       });
-      label.textContent = cat.toUpperCase();
-      svgEl.appendChild(label);
+      t.textContent = cat.toUpperCase();
+      svgEl.appendChild(t);
     });
 
-    // Game bubbles
-    selectedGames.forEach(sg => {
-      const pos = gamePosition(sg.game);
-      const freq = sg.frequency; // 1-5
-      const bubbleR = 7 + freq * 3;
+    // ── Intersection labels (small, inside each region) ──
+    // Only shown when there are no bubbles, as a guide
+    if (selectedGames.length === 0) {
+      const hints = [
+        { x: (CX.micro + CX.meso) / 2 - 10,  y: (CY.micro + CY.meso) / 2,      text: 'Duelist',    col: ICOL.micro_meso  },
+        { x: (CX.micro + CX.macro) / 2,       y: (CY.micro + CY.macro) / 2 + 14, text: 'Optimizer',  col: ICOL.micro_macro },
+        { x: (CX.meso  + CX.macro) / 2 + 10,  y: (CY.meso  + CY.macro) / 2,      text: 'Strategist', col: ICOL.meso_macro  },
+        { x: (CX.micro + CX.meso + CX.macro) / 3, y: (CY.micro + CY.meso + CY.macro) / 3 + 5, text: 'Complete', col: ICOL.all },
+      ];
+      hints.forEach(({ x, y, text, col }) => {
+        const t = mk('text', {
+          x, y,
+          'text-anchor': 'middle',
+          fill: col,
+          'font-size': '9',
+          'font-weight': 'bold',
+          'font-family': 'system-ui, sans-serif',
+          opacity: '0.7',
+        });
+        t.textContent = text;
+        svgEl.appendChild(t);
+      });
+    }
 
-      const group = mk('g', { class: 'game-bubble' });
+    // ── Game bubbles (barycentric positioning) ──
+    selectedGames.forEach(sg => {
+      const pos  = gamePos(sg.game);
+      const r    = 6 + sg.frequency * 2.5;
+      const col  = dominantColor(sg.game);
 
       const circle = mk('circle', {
-        cx: pos.x,
-        cy: pos.y,
-        r: bubbleR,
-        fill: dominantColor(sg.game),
-        'fill-opacity': '0.85',
+        cx: pos.x, cy: pos.y, r,
+        fill: col,
+        'fill-opacity': '0.88',
         stroke: '#fff',
         'stroke-width': '1',
-        'stroke-opacity': '0.4',
+        'stroke-opacity': '0.5',
         style: 'cursor:pointer',
       });
-
-      // Tooltip via <title>
       const title = document.createElementNS(ns, 'title');
       title.textContent = `${sg.game.name}\nMicro ${sg.game.micro} · Meso ${sg.game.meso} · Macro ${sg.game.macro}`;
       circle.appendChild(title);
-
-      group.appendChild(circle);
-      svgEl.appendChild(group);
+      svgEl.appendChild(circle);
     });
 
-    // Summary bar at bottom
+    // ── Summary bar ──
     if (selectedGames.length > 0) {
-      const totals = { micro: 0, meso: 0, macro: 0 };
+      const tot = { micro: 0, meso: 0, macro: 0 };
       selectedGames.forEach(sg => {
-        totals.micro += sg.game.micro * sg.frequency;
-        totals.meso  += sg.game.meso  * sg.frequency;
-        totals.macro += sg.game.macro * sg.frequency;
+        tot.micro += sg.game.micro * sg.frequency;
+        tot.meso  += sg.game.meso  * sg.frequency;
+        tot.macro += sg.game.macro * sg.frequency;
       });
-      const sum = totals.micro + totals.meso + totals.macro || 1;
-      const pct = {
-        micro: Math.round(totals.micro / sum * 100),
-        meso:  Math.round(totals.meso  / sum * 100),
-        macro: Math.round(totals.macro / sum * 100),
-      };
+      const sum = tot.micro + tot.meso + tot.macro || 1;
+      const pct = { micro: tot.micro / sum, meso: tot.meso / sum, macro: tot.macro / sum };
 
-      const barY = H - 36;
-      const barX = 40;
-      const barW = W - 80;
+      const barY = H - 28, barX = 36, barW = W - 72;
+      svgEl.appendChild(mk('rect', { x:barX, y:barY, width:barW, height:12, fill:'#1e2130', rx:6 }));
 
-      svgEl.appendChild(mk('rect', { x: barX, y: barY, width: barW, height: 14, fill: '#1e2130', rx: 7 }));
-
-      let cursor = barX;
+      let cur = barX;
       ['micro', 'meso', 'macro'].forEach(cat => {
-        const segW = barW * pct[cat] / 100;
-        if (segW > 0) {
+        const segW = barW * pct[cat];
+        if (segW > 1) {
           svgEl.appendChild(mk('rect', {
-            x: cursor, y: barY, width: segW, height: 14,
-            fill: COLORS[cat], rx: cursor === barX ? 7 : 0,
+            x: cur, y: barY, width: segW, height: 12,
+            fill: COL[cat], rx: cur === barX ? 6 : 0,
           }));
+          if (pct[cat] > 0.07) {
+            const t = mk('text', {
+              x: cur + segW / 2, y: barY - 5,
+              'text-anchor': 'middle',
+              fill: COL[cat],
+              'font-size': '11',
+              'font-family': 'system-ui, sans-serif',
+            });
+            t.textContent = `${Math.round(pct[cat] * 100)}%`;
+            svgEl.appendChild(t);
+          }
         }
-        cursor += segW;
-      });
-
-      // Percentage labels
-      const labelY = barY - 6;
-      cursor = barX;
-      ['micro', 'meso', 'macro'].forEach(cat => {
-        const segW = barW * pct[cat] / 100;
-        if (pct[cat] > 5) {
-          const txt = mk('text', {
-            x: cursor + segW / 2,
-            y: labelY,
-            'text-anchor': 'middle',
-            fill: COLORS[cat],
-            'font-size': '11',
-            'font-family': 'system-ui, sans-serif',
-          });
-          txt.textContent = `${pct[cat]}%`;
-          svgEl.appendChild(txt);
-        }
-        cursor += segW;
+        cur += segW;
       });
     }
   }
