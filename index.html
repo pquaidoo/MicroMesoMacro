@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MicroMesoMacro — What Kind of Gamer Are You?</title>
+  <meta name="description" content="Select the games you play and discover your Micro/Meso/Macro gamer profile with a Venn diagram.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <h1>
+    <span class="micro">Micro</span><span class="sep">/</span><span class="meso">Meso</span><span class="sep">/</span><span class="macro">Macro</span>
+  </h1>
+  <p class="tagline">What kind of gamer are you?</p>
+</header>
+
+<main>
+
+  <!-- ===== INTRO ===== -->
+  <section class="screen active" id="screen-intro">
+    <div class="intro-card">
+      <h2>Three dimensions of every game</h2>
+
+      <div class="categories">
+        <div class="cat-card micro">
+          <h3>Micro</h3>
+          <p>Pure mechanics — precise execution, muscle memory, frame-perfect inputs, aim, and timing. The machine layer of skill.</p>
+          <span class="cheat-badge">Cheat = bot / aimbot</span>
+        </div>
+        <div class="cat-card meso">
+          <h3>Meso</h3>
+          <p>Reading people — opponent patterns, team communication, psychology, positioning reads, and information warfare.</p>
+          <span class="cheat-badge">Cheat = wallhack / comms intercept</span>
+        </div>
+        <div class="cat-card macro">
+          <h3>Macro</h3>
+          <p>Big picture — strategy, resource management, meta-game, routing math, and long-term decision making.</p>
+          <span class="cheat-badge">Cheat = coach / script / solver</span>
+        </div>
+      </div>
+
+      <p style="color:var(--muted);font-size:0.88rem;text-align:center;margin-bottom:24px;">
+        Most games blend all three. Select the games you play and we'll map where you spend your mental energy.
+      </p>
+
+      <button class="btn btn-primary" id="btn-start">Find My Gamer Profile</button>
+    </div>
+  </section>
+
+  <!-- ===== GAME SELECTION ===== -->
+  <section class="screen" id="screen-select">
+    <div class="select-layout">
+
+      <!-- Left: game picker -->
+      <div class="panel">
+        <h3>Pick your games (<span id="selected-count">0</span> selected)</h3>
+        <input type="text" id="game-search" placeholder="Search games..." autocomplete="off">
+        <div class="game-grid" id="game-grid"></div>
+
+        <div class="custom-row">
+          <input type="text" id="custom-game-input" placeholder="Add a game not listed…" maxlength="60">
+          <button class="btn btn-ghost btn-sm" id="btn-add-custom">Add</button>
+        </div>
+        <p class="custom-note">Custom games are added with balanced Micro/Meso/Macro scores (5/5/5).</p>
+      </div>
+
+      <!-- Right: selected list + submit -->
+      <div class="panel selected-panel">
+        <h3>Selected Games</h3>
+        <div id="selected-list">
+          <p class="empty-state">No games selected yet.<br>Click a game on the left to add it.</p>
+        </div>
+        <button class="btn btn-primary" id="btn-results" disabled>Select at least one game</button>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ===== RESULTS ===== -->
+  <section class="screen" id="screen-results">
+    <div class="results-layout">
+
+      <!-- Venn diagram -->
+      <div class="panel" style="padding:12px;">
+        <svg id="venn-svg" role="img" aria-label="Venn diagram of your gamer profile"></svg>
+        <p style="text-align:center;font-size:0.75rem;color:var(--muted);margin-top:8px;">
+          Bubble size = play frequency &nbsp;·&nbsp; Position = Micro/Meso/Macro blend &nbsp;·&nbsp; Hover for details
+        </p>
+      </div>
+
+      <!-- Breakdown panel -->
+      <div class="panel breakdown-panel" id="breakdown">
+        <!-- Filled by quiz.js -->
+      </div>
+
+    </div>
+
+    <div class="btn-row" style="margin-top:16px;max-width:860px;">
+      <button class="btn btn-ghost" id="btn-restart">← Start Over</button>
+      <button class="btn btn-primary" id="btn-share-info">Share Profile</button>
+    </div>
+  </section>
+
+</main>
+
+<script src="js/games.js"></script>
+<script src="js/venn.js"></script>
+<script src="js/quiz.js"></script>
+</body>
+</html>
