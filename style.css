@@ -179,35 +179,11 @@ main {
 .hint-up    { top: 4px;   left: 50%; transform: translateX(-50%); color: var(--would);  border-color: var(--would);   background: rgba(92,184,224,0.1); }
 .hint-down  { bottom: 4px; left: 50%; transform: translateX(-50%); color: var(--eh);    border-color: var(--eh);      background: rgba(124,128,152,0.1); }
 
-/* Card stack */
+/* Card stack — children positioned inline by JS */
 .card-stack {
   position: relative;
   width: 320px;
   height: 340px;
-}
-
-/* Background ghost cards */
-.game-card-wrap {
-  position: absolute;
-  inset: 0;
-  transition: transform 0.3s ease;
-}
-.game-card-wrap:nth-child(2) { transform: scale(0.95) translateY(12px); z-index: 1; }
-.game-card-wrap:nth-child(3) { transform: scale(0.90) translateY(24px); z-index: 0; }
-.game-card-wrap:nth-child(n+4) { display: none; }
-
-/* The front card (first child) is interactive */
-.game-card-wrap:first-child {
-  z-index: 10;
-  cursor: grab;
-  touch-action: none;
-  transition: none; /* driven by JS during drag */
-}
-.game-card-wrap:first-child.snapping {
-  transition: transform 0.35s cubic-bezier(.25,.46,.45,.94);
-}
-.game-card-wrap:first-child.flying {
-  transition: transform 0.4s ease-in, opacity 0.4s ease-in;
 }
 
 .game-card {
