@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MicroMesoMacro — What Kind of Gamer Are You?</title>
-  <meta name="description" content="Select the games you play and discover your Micro/Meso/Macro gamer profile with a Venn diagram.">
+  <meta name="description" content="Swipe through games and discover your Micro/Meso/Macro gamer profile.">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -42,58 +42,74 @@
       </div>
 
       <p style="color:var(--muted);font-size:0.88rem;text-align:center;margin-bottom:24px;">
-        Most games blend all three. Select the games you play and we'll map where you spend your mental energy.
+        Swipe through games and rate them — we'll map where you spend your mental energy.
       </p>
 
-      <button class="btn btn-primary" id="btn-start">Find My Gamer Profile</button>
+      <button class="btn btn-primary" id="btn-start">Let's Go</button>
     </div>
   </section>
 
-  <!-- ===== GAME SELECTION ===== -->
+  <!-- ===== SWIPE ===== -->
   <section class="screen" id="screen-select">
-    <div class="select-layout">
 
-      <!-- Left: game picker -->
-      <div class="panel">
-        <h3>Pick your games (<span id="selected-count">0</span> selected)</h3>
-        <input type="text" id="game-search" placeholder="Search games..." autocomplete="off">
-        <div class="game-grid" id="game-grid"></div>
-
-        <div class="custom-row">
-          <input type="text" id="custom-game-input" placeholder="Add a game not listed…" maxlength="60">
-          <button class="btn btn-ghost btn-sm" id="btn-add-custom">Add</button>
-        </div>
-        <p class="custom-note">Custom games are added with balanced Micro/Meso/Macro scores (5/5/5).</p>
-      </div>
-
-      <!-- Right: selected list + submit -->
-      <div class="panel selected-panel">
-        <h3>Selected Games</h3>
-        <div id="selected-list">
-          <p class="empty-state">No games selected yet.<br>Click a game on the left to add it.</p>
-        </div>
-        <button class="btn btn-primary" id="btn-results" disabled>Select at least one game</button>
-      </div>
-
+    <div class="swipe-progress">
+      <div class="swipe-progress-fill" id="progress-fill"></div>
     </div>
+    <p class="swipe-counter" id="swipe-counter">0 / 0</p>
+
+    <div class="swipe-arena">
+      <!-- Direction hint labels -->
+      <div class="hint hint-left">  <span>DISLIKE</span>  </div>
+      <div class="hint hint-right"> <span>PLAY OFTEN</span></div>
+      <div class="hint hint-up">    <span>WOULD LIKE</span></div>
+      <div class="hint hint-down">  <span>EH</span>        </div>
+
+      <!-- Card stack — filled by JS -->
+      <div class="card-stack" id="card-stack"></div>
+    </div>
+
+    <!-- 5-button row -->
+    <div class="action-row">
+      <button class="action-btn dislike"  data-action="dislike"  title="Dislike (←)">
+        <span class="ab-icon">✕</span>
+        <span class="ab-label">Dislike</span>
+      </button>
+      <button class="action-btn wouldnt"  data-action="wouldnt"  title="Wouldn't Like">
+        <span class="ab-icon">👎</span>
+        <span class="ab-label">Wouldn't</span>
+      </button>
+      <button class="action-btn eh"       data-action="eh"        title="Eh / Neutral (↓)">
+        <span class="ab-icon">🤷</span>
+        <span class="ab-label">Eh</span>
+      </button>
+      <button class="action-btn would"    data-action="would"     title="Would Like (↑)">
+        <span class="ab-icon">⭐</span>
+        <span class="ab-label">Would Like</span>
+      </button>
+      <button class="action-btn often"    data-action="often"     title="Play Often (→)">
+        <span class="ab-icon">❤️</span>
+        <span class="ab-label">Play Often</span>
+      </button>
+    </div>
+
+    <button class="btn btn-ghost btn-sm skip-btn" id="btn-skip-to-results">
+      Skip to results →
+    </button>
+
   </section>
 
   <!-- ===== RESULTS ===== -->
   <section class="screen" id="screen-results">
     <div class="results-layout">
 
-      <!-- Venn diagram -->
       <div class="panel" style="padding:12px;">
         <svg id="venn-svg" role="img" aria-label="Venn diagram of your gamer profile"></svg>
         <p style="text-align:center;font-size:0.75rem;color:var(--muted);margin-top:8px;">
-          Bubble size = play frequency &nbsp;·&nbsp; Position = Micro/Meso/Macro blend &nbsp;·&nbsp; Hover for details
+          Bubble size = how often you play &nbsp;·&nbsp; Position = Micro/Meso/Macro blend &nbsp;·&nbsp; Hover for details
         </p>
       </div>
 
-      <!-- Breakdown panel -->
-      <div class="panel breakdown-panel" id="breakdown">
-        <!-- Filled by quiz.js -->
-      </div>
+      <div class="panel breakdown-panel" id="breakdown"></div>
 
     </div>
 
