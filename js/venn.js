@@ -27,10 +27,11 @@ const VENN = (() => {
   }
 
   function gamePos(game) {
-    const t = game.micro + game.meso + game.macro || 1;
+    const g = thresh(game);
+    const t = g.micro + g.meso + g.macro || 1;
     return {
-      x: (game.micro * C.micro[0] + game.meso * C.meso[0] + game.macro * C.macro[0]) / t,
-      y: (game.micro * C.micro[1] + game.meso * C.meso[1] + game.macro * C.macro[1]) / t,
+      x: (g.micro * C.micro[0] + g.meso * C.meso[0] + g.macro * C.macro[0]) / t,
+      y: (g.micro * C.micro[1] + g.meso * C.meso[1] + g.macro * C.macro[1]) / t,
     };
   }
 
@@ -135,9 +136,10 @@ const VENN = (() => {
     if (selectedGames.length > 0) {
       const tot = { micro: 0, meso: 0, macro: 0 };
       selectedGames.forEach(sg => {
-        tot.micro += sg.game.micro * sg.frequency;
-        tot.meso  += sg.game.meso  * sg.frequency;
-        tot.macro += sg.game.macro * sg.frequency;
+        const g = thresh(sg.game);
+        tot.micro += g.micro * sg.frequency;
+        tot.meso  += g.meso  * sg.frequency;
+        tot.macro += g.macro * sg.frequency;
       });
       const sum = tot.micro + tot.meso + tot.macro || 1;
       const pct = { micro: tot.micro / sum, meso: tot.meso / sum, macro: tot.macro / sum };

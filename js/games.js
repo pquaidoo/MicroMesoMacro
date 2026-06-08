@@ -1,3 +1,16 @@
+// Scores below this are treated as 0 for positioning and profile calculations.
+// Keeps games from drifting toward categories where they barely participate.
+const THRESHOLD = 3;
+
+function thresh(game) {
+  const micro = game.micro >= THRESHOLD ? game.micro : 0;
+  const meso  = game.meso  >= THRESHOLD ? game.meso  : 0;
+  const macro = game.macro >= THRESHOLD ? game.macro : 0;
+  // If everything is zeroed out, fall back to raw scores so position is still valid
+  if (micro === 0 && meso === 0 && macro === 0) return game;
+  return { micro, meso, macro };
+}
+
 const GAMES = [
   { name: "Chess",                   micro: 1,  meso: 4,  macro: 10 },
   { name: "Poker",                   micro: 0,  meso: 9,  macro: 7  },

@@ -311,9 +311,10 @@
   function renderBreakdown(selectedGames, allVotes) {
     const totals = { micro: 0, meso: 0, macro: 0 };
     selectedGames.forEach(sg => {
-      totals.micro += sg.game.micro * sg.frequency;
-      totals.meso  += sg.game.meso  * sg.frequency;
-      totals.macro += sg.game.macro * sg.frequency;
+      const g = thresh(sg.game);
+      totals.micro += g.micro * sg.frequency;
+      totals.meso  += g.meso  * sg.frequency;
+      totals.macro += g.macro * sg.frequency;
     });
     const sum = totals.micro + totals.meso + totals.macro || 1;
     const pct = {
