@@ -1,25 +1,25 @@
 const VENN = (() => {
-  const W = 600, H = 510;
-  const R = 148;
+  const W = 600, H = 510, R = 148;
+  const NS = 'http://www.w3.org/2000/svg';
 
-  // Circle centers — triangle with ~175px sides, so all three overlap significantly
-  const C = {
-    micro: [210, 320],
-    meso:  [300, 168],
-    macro: [390, 320],
-  };
-
+  const C = { micro: [210, 320], meso: [300, 168], macro: [390, 320] };
   const COL = { micro: '#e05c5c', meso: '#5cb8e0', macro: '#5ce07a' };
-
-  // Colors for the 3 pairwise overlaps and the center (all-three)
   const ICOL = {
-    micro_meso:  '#b060d8',  // purple
-    micro_macro: '#e08a30',  // orange
-    meso_macro:  '#30c8b0',  // teal
-    all:         '#f0e060',  // yellow
+    micro_meso:  '#b060d8',
+    micro_macro: '#e08a30',
+    meso_macro:  '#30c8b0',
+    all:         '#f0e060',
   };
+  const OP = 0.55;
 
-  function toRgba(hex, a) {
+  function svgEl(tag, attrs, text) {
+    const e = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  function hex2rgba(hex, a) {
     const r = parseInt(hex.slice(1, 3), 16);
     const g = parseInt(hex.slice(3, 5), 16);
     const b = parseInt(hex.slice(5, 7), 16);
@@ -42,97 +42,134 @@ const VENN = (() => {
     return COL.macro;
   }
 
-  // Fill only the area that is INSIDE every circle in `inside`
-  // and OUTSIDE every circle in `outside`.
-  // Uses canvas save/restore so clips don't leak.
-  function fillRegion(ctx, color, inside, outside) {
-    ctx.save();
-
-    // Positive clips: intersect down to inside each listed circle
-    inside.forEach(([cx, cy]) => {
-      ctx.beginPath();
-      ctx.arc(cx, cy, R, 0, Math.PI * 2);
-      ctx.clip();
-    });
-
-    // Negative clips: cut away each listed circle using even-odd rule
-    // (a full-canvas rect plus the circle path, clipped evenodd = everything outside the circle)
-    outside.forEach(([cx, cy]) => {
-      ctx.beginPath();
-      ctx.rect(0, 0, W, H);
-      ctx.arc(cx, cy, R, 0, Math.PI * 2);
-      ctx.clip('evenodd');
-    });
-
-    ctx.fillStyle = color;
-    ctx.fillRect(0, 0, W, H);
-    ctx.restore();
-  }
-
-  function render(canvasEl, selectedGames) {
-    canvasEl.width  = W;
-    canvasEl.height = H;
-    const ctx = canvasEl.getContext('2d');
+  function render(svgRoot, selectedGames) {
+    svgRoot.innerHTML = '';
+    svgRoot.setAttribute('viewBox', `0 0 ${W} ${H}`);
 
     const [mi, me, ma] = [C.micro, C.meso, C.macro];
-    const OP = 0.55;
+    const defs = svgEl('defs', {});
 
-    // ── Background ──
-    ctx.fillStyle = '#0f1117';
-    ctx.fillRect(0, 0, W, H);
+    // ── Clip paths (one per circle) ──────────────────────────────────────────
+    [['venn-c-mi', mi], ['venn-c-me', me], ['venn-c-ma', ma]].forEach(([id, [cx, cy]]) => {
+      const cp = svgEl('clipPath', { id });
+      cp.appendChild(svgEl('circle', { cx, cy, r: R }));
+      defs.appendChild(cp);
+    });
 
-    // ── 7 Venn regions ──
-    fillRegion(ctx, toRgba(COL.micro,        OP), [mi],       [me, ma]);
-    fillRegion(ctx, toRgba(COL.meso,         OP), [me],       [mi, ma]);
-    fillRegion(ctx, toRgba(COL.macro,        OP), [ma],       [mi, me]);
-    fillRegion(ctx, toRgba(ICOL.micro_meso,  OP), [mi, me],   [ma]    );
-    fillRegion(ctx, toRgba(ICOL.micro_macro, OP), [mi, ma],   [me]    );
-    fillRegion(ctx, toRgba(ICOL.meso_macro,  OP), [me, ma],   [mi]    );
-    fillRegion(ctx, toRgba(ICOL.all,         OP), [mi, me, ma], []    );
+    // ── Exclusion masks ───────────────────────────────────────────────────────
+    // Each mask shows everything (white rect) then blacks out the excluded circles.
+    // Used for region fills AND bubble containment.
+    const EXCL = {
+      'me-ma': [me, ma],
+      'mi-ma': [mi, ma],
+      'mi-me': [mi, me],
+      'ma':    [ma],
+      'me':    [me],
+      'mi':    [mi],
+    };
+    Object.entries(EXCL).forEach(([key, circles]) => {
+      const mask = svgEl('mask', { id: `venn-x-${key}` });
+      mask.appendChild(svgEl('rect', { x: 0, y: 0, width: W, height: H, fill: 'white' }));
+      circles.forEach(([cx, cy]) => {
+        mask.appendChild(svgEl('circle', { cx, cy, r: R, fill: 'black' }));
+      });
+      defs.appendChild(mask);
+    });
 
-    // ── Circle outlines ──
+    svgRoot.appendChild(defs);
+
+    // ── Background ───────────────────────────────────────────────────────────
+    svgRoot.appendChild(svgEl('rect', { x: 0, y: 0, width: W, height: H, fill: '#0f1117' }));
+
+    // ── 7 Venn regions ───────────────────────────────────────────────────────
+    // Wrap a colored rect in nested clip-path groups, optionally with an exclusion mask.
+    function region(color, clipKeys, exclKey) {
+      let inner = svgEl('rect', {
+        x: 0, y: 0, width: W, height: H,
+        fill: color,
+        ...(exclKey ? { mask: `url(#venn-x-${exclKey})` } : {}),
+      });
+      for (let i = clipKeys.length - 1; i >= 0; i--) {
+        const g = svgEl('g', { 'clip-path': `url(#venn-c-${clipKeys[i]})` });
+        g.appendChild(inner);
+        inner = g;
+      }
+      return inner;
+    }
+
+    svgRoot.appendChild(region(hex2rgba(COL.micro,        OP), ['mi'],           'me-ma'));
+    svgRoot.appendChild(region(hex2rgba(COL.meso,         OP), ['me'],           'mi-ma'));
+    svgRoot.appendChild(region(hex2rgba(COL.macro,        OP), ['ma'],           'mi-me'));
+    svgRoot.appendChild(region(hex2rgba(ICOL.micro_meso,  OP), ['mi', 'me'],     'ma'));
+    svgRoot.appendChild(region(hex2rgba(ICOL.micro_macro, OP), ['mi', 'ma'],     'me'));
+    svgRoot.appendChild(region(hex2rgba(ICOL.meso_macro,  OP), ['me', 'ma'],     'mi'));
+    svgRoot.appendChild(region(hex2rgba(ICOL.all,         OP), ['mi', 'me', 'ma'], null));
+
+    // ── Circle outlines ───────────────────────────────────────────────────────
     [[COL.micro, mi], [COL.meso, me], [COL.macro, ma]].forEach(([col, [cx, cy]]) => {
-      ctx.beginPath();
-      ctx.arc(cx, cy, R, 0, Math.PI * 2);
-      ctx.strokeStyle = col;
-      ctx.lineWidth = 2.5;
-      ctx.globalAlpha = 0.85;
-      ctx.stroke();
+      svgRoot.appendChild(svgEl('circle', {
+        cx, cy, r: R,
+        fill: 'none', stroke: col, 'stroke-width': 2.5, opacity: 0.85,
+      }));
     });
-    ctx.globalAlpha = 1;
 
-    // ── Category labels ──
-    ctx.font = 'bold 14px system-ui, sans-serif';
+    // ── Category labels ───────────────────────────────────────────────────────
+    const lf = { style: 'font: bold 14px system-ui, sans-serif' };
+    svgRoot.appendChild(svgEl('text', { x: C.micro[0] - R - 8, y: C.micro[1] + 5,   fill: COL.micro,  'text-anchor': 'end',    ...lf }, 'MICRO'));
+    svgRoot.appendChild(svgEl('text', { x: C.meso[0],          y: C.meso[1] - R - 10, fill: COL.meso,  'text-anchor': 'middle', ...lf }, 'MESO'));
+    svgRoot.appendChild(svgEl('text', { x: C.macro[0] + R + 8, y: C.macro[1] + 5,  fill: COL.macro, 'text-anchor': 'start',  ...lf }, 'MACRO'));
 
-    ctx.fillStyle = COL.micro;
-    ctx.textAlign = 'right';
-    ctx.fillText('MICRO', C.micro[0] - R - 8, C.micro[1] + 5);
+    // ── Game bubbles (drawn last = always on top of all regions) ─────────────
+    const tooltip = document.getElementById('venn-tooltip');
 
-    ctx.fillStyle = COL.meso;
-    ctx.textAlign = 'center';
-    ctx.fillText('MESO', C.meso[0], C.meso[1] - R - 10);
-
-    ctx.fillStyle = COL.macro;
-    ctx.textAlign = 'left';
-    ctx.fillText('MACRO', C.macro[0] + R + 8, C.macro[1] + 5);
-
-    // ── Game bubbles ──
     selectedGames.forEach(sg => {
-      const pos = gamePos(sg.game);
-      const r   = 6 + sg.frequency * 2.5;
+      const pos  = gamePos(sg.game);
+      const r    = 6 + sg.frequency * 2.5;
+      const g    = thresh(sg.game);
 
-      ctx.beginPath();
-      ctx.arc(pos.x, pos.y, r, 0, Math.PI * 2);
-      ctx.fillStyle = dominantColor(sg.game);
-      ctx.globalAlpha = 0.9;
-      ctx.fill();
-      ctx.globalAlpha = 1;
-      ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
+      // Build exclusion mask key from whichever categories are absent
+      const absent = [];
+      if (g.micro === 0) absent.push('mi');
+      if (g.meso  === 0) absent.push('me');
+      if (g.macro === 0) absent.push('ma');
+      const exclKey = absent.length ? absent.join('-') : null;
+
+      const circle = svgEl('circle', {
+        cx: pos.x.toFixed(1), cy: pos.y.toFixed(1), r: r.toFixed(1),
+        fill: dominantColor(sg.game),
+        stroke: 'white', 'stroke-width': 1, 'stroke-opacity': 0.5,
+        opacity: 0.9,
+        style: 'cursor: pointer',
+      });
+
+      // Wrap in a <g> with the exclusion mask so the bubble can't bleed into
+      // circles it doesn't belong to, no matter how large it gets.
+      const node = exclKey
+        ? (() => {
+            const grp = svgEl('g', { mask: `url(#venn-x-${exclKey})` });
+            grp.appendChild(circle);
+            return grp;
+          })()
+        : circle;
+
+      if (tooltip) {
+        node.addEventListener('mouseenter', e => {
+          tooltip.textContent = sg.game.name;
+          tooltip.classList.add('visible');
+          tooltip.style.left = (e.clientX + 12) + 'px';
+          tooltip.style.top  = (e.clientY - 28) + 'px';
+        });
+        node.addEventListener('mousemove', e => {
+          tooltip.style.left = (e.clientX + 12) + 'px';
+          tooltip.style.top  = (e.clientY - 28) + 'px';
+        });
+        node.addEventListener('mouseleave', () => tooltip.classList.remove('visible'));
+      }
+
+      svgRoot.appendChild(node);
     });
 
-    // ── Summary bar ──
+    // ── Summary bar ──────────────────────────────────────────────────────────
     if (selectedGames.length > 0) {
       const tot = { micro: 0, meso: 0, macro: 0 };
       selectedGames.forEach(sg => {
@@ -141,26 +178,25 @@ const VENN = (() => {
         tot.meso  += g.meso  * sg.frequency;
         tot.macro += g.macro * sg.frequency;
       });
-      const sum = tot.micro + tot.meso + tot.macro || 1;
-      const pct = { micro: tot.micro / sum, meso: tot.meso / sum, macro: tot.macro / sum };
-
+      const sum  = tot.micro + tot.meso + tot.macro || 1;
+      const pct  = { micro: tot.micro / sum, meso: tot.meso / sum, macro: tot.macro / sum };
       const barY = H - 26, barX = 36, barW = W - 72, barH = 12;
+      const bf   = { style: 'font: 11px system-ui, sans-serif' };
 
-      ctx.fillStyle = '#1e2130';
-      ctx.fillRect(barX, barY, barW, barH);
+      svgRoot.appendChild(svgEl('rect', { x: barX, y: barY, width: barW, height: barH, fill: '#1e2130' }));
 
       let cur = barX;
       ['micro', 'meso', 'macro'].forEach(cat => {
         const segW = barW * pct[cat];
         if (segW > 1) {
-          ctx.fillStyle = COL[cat];
-          ctx.fillRect(cur, barY, segW, barH);
-
+          svgRoot.appendChild(svgEl('rect', {
+            x: cur.toFixed(1), y: barY, width: segW.toFixed(1), height: barH, fill: COL[cat],
+          }));
           if (pct[cat] > 0.07) {
-            ctx.fillStyle = COL[cat];
-            ctx.font = '11px system-ui, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText(`${Math.round(pct[cat] * 100)}%`, cur + segW / 2, barY - 5);
+            svgRoot.appendChild(svgEl('text', {
+              x: (cur + segW / 2).toFixed(1), y: barY - 5,
+              fill: COL[cat], 'text-anchor': 'middle', ...bf,
+            }, `${Math.round(pct[cat] * 100)}%`));
           }
         }
         cur += segW;

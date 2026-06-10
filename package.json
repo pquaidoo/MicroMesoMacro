@@ -1,0 +1,6 @@
+{
+  "name": "micromesomacroo",
+  "scripts": {
+    "start": "npx live-server --port=3000 --no-css-inject"
+  }
+}
